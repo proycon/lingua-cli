@@ -1,5 +1,5 @@
 use clap::Parser;
-use lingua::{IsoCode639_1, Language, LanguageDetector, LanguageDetectorBuilder};
+use lingua::{IsoCode639_1, Language, LanguageDetectorBuilder};
 use std::io::{self, BufRead, Read};
 use std::str::FromStr;
 
@@ -10,7 +10,7 @@ struct Args {
     #[arg(
         short,
         long,
-        help = "comma seperated list of iso-639-1 codes of languages to detect, if not specified, all supported language will be used.",
+        help = "comma seperated list of iso-639-1 codes of languages to detect, if not specified, all supported language will be used. Setting this improves accuracy and resource usage.",
         num_args = 1,
         value_delimiter = ',',
         required = false
@@ -24,8 +24,17 @@ struct Args {
     )]
     per_line: bool,
 
-    #[arg(short = 'L', help = "List supported languages")]
+    #[arg(short = 'L', long, help = "List supported languages")]
     list: bool,
+
+    #[arg(short = 'q', long, help = "Quick/low accuracy mode")]
+    quick: bool,
+
+    #[arg(short = 'm', long)]
+    minimum_relative_distance: Option<f64>,
+
+    #[arg(short = 'p', help = "preload models")]
+    preload: bool,
 
     #[arg(short, long, default_value = "\t")]
     delimiter: String,
@@ -54,11 +63,21 @@ fn main() {
                 .expect("Supported iso639-1 language code expected")
         })
         .collect();
-    let detector: LanguageDetector = if languages.is_empty() {
-        LanguageDetectorBuilder::from_all_languages().build()
+    let mut builder: LanguageDetectorBuilder = if languages.is_empty() {
+        LanguageDetectorBuilder::from_all_languages()
     } else {
-        LanguageDetectorBuilder::from_iso_codes_639_1(&languages).build()
+        LanguageDetectorBuilder::from_iso_codes_639_1(&languages)
     };
+    if args.quick {
+        builder.with_low_accuracy_mode();
+    }
+    if args.preload {
+        builder.with_preloaded_language_models();
+    }
+    if let Some(minimum_relative_distance) = args.minimum_relative_distance {
+        builder.with_minimum_relative_distance(minimum_relative_distance);
+    }
+    let detector = builder.build();
 
     if !args.text.is_empty() {
         //text provided as arguments
