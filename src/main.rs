@@ -24,6 +24,13 @@ struct Args {
     )]
     per_line: bool,
 
+    #[arg(
+        short = 'p',
+        long,
+        help = "Use parallel computation, can only be used with per_line mode"
+    )]
+    parallel: bool,
+
     #[arg(short = 'L', long, help = "List supported languages")]
     list: bool,
 
@@ -89,6 +96,20 @@ fn main() {
                 results[0].0.iso_code_639_1(),
                 args.delimiter,
                 results[0].1
+            );
+        }
+    } else if args.per_line && args.parallel {
+        let stdin = io::stdin();
+        let lines: Vec<_> = stdin.lock().lines().filter_map(|x| x.ok()).collect();
+        let results = detector.compute_language_confidence_values_in_parallel(&lines);
+        for (line, result) in lines.iter().zip(results) {
+            print!(
+                "{}{}{}{}{}\n",
+                result[0].0.iso_code_639_1(),
+                args.delimiter,
+                result[0].1,
+                args.delimiter,
+                line
             );
         }
     } else if args.per_line {
