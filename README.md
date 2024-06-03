@@ -2,7 +2,7 @@
 
 This is a small command-line tool for language detection, it is a simple
 wrapper around the [lingua-rs](https://github.com/pemistahl/lingua-rs/) library
-for Rust.
+for Rust, read there for extensive documentation.
 
 ## Installation
 
