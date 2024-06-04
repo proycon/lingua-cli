@@ -1,6 +1,5 @@
 [![Crate](https://img.shields.io/crates/v/lingua-cli.svg)](https://crates.io/crates/lingua-cli)
-[![Docs](https://docs.rs/lingua-cli/badge.svg)](https://docs.rs/lingua-cli/)
-[![GitHub release](https://img.shields.io/github/release/annotation/lingua-cli.svg)](https://github.com/proycon/lingua-cli/releases/)
+[![GitHub release](https://img.shields.io/github/release/proycon/lingua-cli.svg)](https://github.com/proycon/lingua-cli/releases/)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 ![Technology Readiness Level 7/9 - Release Candidate - Technology ready enough and in initial use by end-users in intended scholarly environments. Further validation in progress.](https://w3id.org/research-technology-readiness-levels/Level7ReleaseCandidate.svg)
 
