@@ -43,3 +43,12 @@ nl      0.988293648761749       hallo allemaal
 ```
 
 Output is TSV and consists of an iso-639-1 language code, confidence score, and in line-by-line mode, a copy of the line.
+
+You can also classified mixed text using the ``--multi`` option. This will then output UTF-8 byte offsets:
+
+```
+$ lingua-cli --multi -l fr,de,en < /tmp/test.txt
+0       23      fr      Parlez-vous français? 
+23      73      de      Ich spreche ein bisschen spreche Französisch ja. 
+73      110     en      A little bit is better than nothing.
+```

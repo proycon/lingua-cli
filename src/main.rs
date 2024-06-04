@@ -1,5 +1,5 @@
 use clap::Parser;
-use lingua::{IsoCode639_1, Language, LanguageDetectorBuilder};
+use lingua::{DetectionResult, IsoCode639_1, Language, LanguageDetectorBuilder};
 use std::io::{self, BufRead, Read};
 use std::str::FromStr;
 
@@ -27,17 +27,31 @@ struct Args {
     #[arg(
         short = 'p',
         long,
-        help = "Use parallel computation, can only be used with per_line mode"
+        help = "Use parallel computation, can only be used with per_line"
     )]
     parallel: bool,
 
     #[arg(short = 'L', long, help = "List supported languages")]
     list: bool,
 
+    #[arg(
+        short,
+        long,
+        help = "Show all confidence values (entire probability distribution), rather than just the winning score. Does not work with --multi"
+    )]
+    all: bool,
+
     #[arg(short = 'q', long, help = "Quick/low accuracy mode")]
     quick: bool,
 
-    #[arg(short = 'm', long)]
+    #[arg(
+        short = 'm',
+        long,
+        help = "Classify multiple languages in mixed texts, will return matches along with UTF-8 byte offsets. Can not be combined with line mode."
+    )]
+    multi: bool,
+
+    #[arg(short = 'd', long)]
     minimum_relative_distance: Option<f64>,
 
     #[arg(short = 'p', help = "preload models")]
@@ -89,44 +103,26 @@ fn main() {
     if !args.text.is_empty() {
         //text provided as arguments
         let text: String = args.text.join(" ");
-        let results = detector.compute_language_confidence_values(text);
-        if !results.is_empty() {
-            print!(
-                "{}{}{}\n",
-                results[0].0.iso_code_639_1(),
-                args.delimiter,
-                results[0].1
-            );
+        if args.multi {
+            let results = detector.detect_multiple_languages_of(&text);
+            print_with_offset(&results, &text, &args.delimiter)
+        } else {
+            let results = detector.compute_language_confidence_values(text);
+            print_confidence_values(&results, &args.delimiter, args.all);
         }
     } else if args.per_line && args.parallel {
         let stdin = io::stdin();
         let lines: Vec<_> = stdin.lock().lines().filter_map(|x| x.ok()).collect();
         let results = detector.compute_language_confidence_values_in_parallel(&lines);
-        for (line, result) in lines.iter().zip(results) {
-            print!(
-                "{}{}{}{}{}\n",
-                result[0].0.iso_code_639_1(),
-                args.delimiter,
-                result[0].1,
-                args.delimiter,
-                line
-            );
+        for (line, results) in lines.iter().zip(results) {
+            print_line_with_confidence_values(line, &results, &args.delimiter, args.all);
         }
     } else if args.per_line {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             if let Ok(line) = line {
                 let results = detector.compute_language_confidence_values(&line);
-                if !results.is_empty() {
-                    print!(
-                        "{}{}{}{}{}\n",
-                        results[0].0.iso_code_639_1(),
-                        args.delimiter,
-                        results[0].1,
-                        args.delimiter,
-                        line
-                    );
-                }
+                print_line_with_confidence_values(&line, &results, &args.delimiter, args.all);
             }
         }
     } else {
@@ -135,14 +131,57 @@ fn main() {
             .read_to_end(&mut buf)
             .expect("expected input via stdin");
         let text = String::from_utf8(buf).expect("Input should be valid utf-8");
-        let results = detector.compute_language_confidence_values(text);
-        if !results.is_empty() {
-            print!(
-                "{}{}{}\n",
-                results[0].0.iso_code_639_1(),
-                args.delimiter,
-                results[0].1
-            );
+        if args.multi {
+            let results = detector.detect_multiple_languages_of(&text);
+            print_with_offset(&results, &text, &args.delimiter)
+        } else {
+            let results = detector.compute_language_confidence_values(text);
+            print_confidence_values(&results, &args.delimiter, args.all);
         }
+    }
+}
+
+fn print_confidence_values(results: &Vec<(Language, f64)>, delimiter: &str, all: bool) {
+    for result in results {
+        print!("{}{}{}\n", result.0.iso_code_639_1(), delimiter, result.1);
+        if !all {
+            break;
+        }
+    }
+}
+
+fn print_line_with_confidence_values(
+    line: &str,
+    results: &Vec<(Language, f64)>,
+    delimiter: &str,
+    all: bool,
+) {
+    for result in results {
+        print!(
+            "{}{}{}{}{}\n",
+            result.0.iso_code_639_1(),
+            delimiter,
+            result.1,
+            delimiter,
+            line
+        );
+        if !all {
+            break;
+        }
+    }
+}
+
+fn print_with_offset(results: &Vec<DetectionResult>, text: &str, delimiter: &str) {
+    for result in results {
+        print!(
+            "{}{}{}{}{}{}{}\n",
+            result.start_index(),
+            delimiter,
+            result.end_index(),
+            delimiter,
+            result.language().iso_code_639_1(),
+            delimiter,
+            &text[result.start_index()..result.end_index()],
+        );
     }
 }
