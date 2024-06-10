@@ -123,10 +123,10 @@ fn main() {
                 print_with_offset(&results, &text, &args.delimiter)
             } else {
                 let results = detector.compute_language_confidence_values(text);
-                if !print_confidence_values(&results, &args.delimiter, args.confidence, args.all) {
-                    eprintln!("(confidence threshold not reached)");
-                }
+                print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
             }
+        } else {
+            print!("unknown{}\n", &args.delimiter);
         }
     } else if args.per_line && args.parallel {
         let stdin = io::stdin();
@@ -146,6 +146,9 @@ fn main() {
             })
             .collect();
         let results = detector.compute_language_confidence_values_in_parallel(&lines);
+        if args.minlength.is_some() {
+            eprintln!("Note: Lines that do not match the minimum length will not be returned (disable parallel mode if you want to return them as 'unknown')")
+        }
         for (line, results) in lines.iter().zip(results) {
             print_line_with_confidence_values(
                 line,
@@ -168,6 +171,8 @@ fn main() {
                         args.confidence,
                         args.all,
                     );
+                } else {
+                    print!("unknown{}{}{}\n", &args.delimiter, &args.delimiter, line);
                 }
             }
         }
@@ -183,9 +188,7 @@ fn main() {
                 print_with_offset(&results, &text, &args.delimiter)
             } else {
                 let results = detector.compute_language_confidence_values(text);
-                if !print_confidence_values(&results, &args.delimiter, args.confidence, args.all) {
-                    eprintln!("(confidence threshold not reached)");
-                }
+                print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
             }
         }
     }
@@ -201,7 +204,7 @@ fn print_confidence_values(
     delimiter: &str,
     confidence_threshold: Option<f64>,
     all: bool,
-) -> bool {
+) {
     let mut found = false;
     for result in results {
         if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
@@ -212,7 +215,9 @@ fn print_confidence_values(
             break;
         }
     }
-    found
+    if !found {
+        print!("unknown{}\n", delimiter);
+    }
 }
 
 fn print_line_with_confidence_values(
@@ -232,6 +237,8 @@ fn print_line_with_confidence_values(
                 delimiter,
                 line
             );
+        } else {
+            print!("unknown{}{}{}\n", delimiter, delimiter, line);
         }
         if !all {
             break;
