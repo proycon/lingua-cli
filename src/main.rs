@@ -61,7 +61,7 @@ struct Args {
     #[arg(
         short = 'M',
         long,
-        help = "Minimum text length (without regard for whitespace, punctuation or numerals!). Shorter fragments will not be classified"
+        help = "Minimum text length (without regard for whitespace, punctuation or numerals!). Shorter fragments will be classified as 'unknown'"
     )]
     minlength: Option<u8>,
 
@@ -207,7 +207,9 @@ fn print_confidence_values(
 ) {
     let mut found = false;
     for result in results {
-        if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
+        if confidence_threshold.is_none()
+            || (confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap())
+        {
             found = true;
             print!("{}{}{}\n", result.0.iso_code_639_1(), delimiter, result.1);
         }
@@ -228,7 +230,9 @@ fn print_line_with_confidence_values(
     all: bool,
 ) {
     for result in results {
-        if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
+        if confidence_threshold.is_none()
+            || (confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap())
+        {
             print!(
                 "{}{}{}{}{}\n",
                 result.0.iso_code_639_1(),
