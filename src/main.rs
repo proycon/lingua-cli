@@ -51,6 +51,13 @@ struct Args {
     )]
     multi: bool,
 
+    #[arg(
+        short = 'c',
+        long,
+        help = "Confidence threshold, only output results with at least this confidence value (0.0-1.0)"
+    )]
+    confidence: Option<f64>,
+
     #[arg(short = 'd', long)]
     minimum_relative_distance: Option<f64>,
 
@@ -108,21 +115,33 @@ fn main() {
             print_with_offset(&results, &text, &args.delimiter)
         } else {
             let results = detector.compute_language_confidence_values(text);
-            print_confidence_values(&results, &args.delimiter, args.all);
+            print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
         }
     } else if args.per_line && args.parallel {
         let stdin = io::stdin();
         let lines: Vec<_> = stdin.lock().lines().filter_map(|x| x.ok()).collect();
         let results = detector.compute_language_confidence_values_in_parallel(&lines);
         for (line, results) in lines.iter().zip(results) {
-            print_line_with_confidence_values(line, &results, &args.delimiter, args.all);
+            print_line_with_confidence_values(
+                line,
+                &results,
+                &args.delimiter,
+                args.confidence,
+                args.all,
+            );
         }
     } else if args.per_line {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             if let Ok(line) = line {
                 let results = detector.compute_language_confidence_values(&line);
-                print_line_with_confidence_values(&line, &results, &args.delimiter, args.all);
+                print_line_with_confidence_values(
+                    &line,
+                    &results,
+                    &args.delimiter,
+                    args.confidence,
+                    args.all,
+                );
             }
         }
     } else {
@@ -136,14 +155,21 @@ fn main() {
             print_with_offset(&results, &text, &args.delimiter)
         } else {
             let results = detector.compute_language_confidence_values(text);
-            print_confidence_values(&results, &args.delimiter, args.all);
+            print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
         }
     }
 }
 
-fn print_confidence_values(results: &Vec<(Language, f64)>, delimiter: &str, all: bool) {
+fn print_confidence_values(
+    results: &Vec<(Language, f64)>,
+    delimiter: &str,
+    confidence_threshold: Option<f64>,
+    all: bool,
+) {
     for result in results {
-        print!("{}{}{}\n", result.0.iso_code_639_1(), delimiter, result.1);
+        if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
+            print!("{}{}{}\n", result.0.iso_code_639_1(), delimiter, result.1);
+        }
         if !all {
             break;
         }
@@ -154,17 +180,20 @@ fn print_line_with_confidence_values(
     line: &str,
     results: &Vec<(Language, f64)>,
     delimiter: &str,
+    confidence_threshold: Option<f64>,
     all: bool,
 ) {
     for result in results {
-        print!(
-            "{}{}{}{}{}\n",
-            result.0.iso_code_639_1(),
-            delimiter,
-            result.1,
-            delimiter,
-            line
-        );
+        if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
+            print!(
+                "{}{}{}{}{}\n",
+                result.0.iso_code_639_1(),
+                delimiter,
+                result.1,
+                delimiter,
+                line
+            );
+        }
         if !all {
             break;
         }
