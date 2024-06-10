@@ -58,6 +58,13 @@ struct Args {
     )]
     confidence: Option<f64>,
 
+    #[arg(
+        short = 'M',
+        long,
+        help = "Minimum text length (without regard for whitespace, punctuation or numerals!). Shorter fragments will not be classified"
+    )]
+    minlength: Option<u8>,
+
     #[arg(short = 'd', long)]
     minimum_relative_distance: Option<f64>,
 
@@ -110,16 +117,34 @@ fn main() {
     if !args.text.is_empty() {
         //text provided as arguments
         let text: String = args.text.join(" ");
-        if args.multi {
-            let results = detector.detect_multiple_languages_of(&text);
-            print_with_offset(&results, &text, &args.delimiter)
-        } else {
-            let results = detector.compute_language_confidence_values(text);
-            print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
+        if args.minlength.is_none() || long_enough(&text, args.minlength.unwrap()) {
+            if args.multi {
+                let results = detector.detect_multiple_languages_of(&text);
+                print_with_offset(&results, &text, &args.delimiter)
+            } else {
+                let results = detector.compute_language_confidence_values(text);
+                if !print_confidence_values(&results, &args.delimiter, args.confidence, args.all) {
+                    eprintln!("(confidence threshold not reached)");
+                }
+            }
         }
     } else if args.per_line && args.parallel {
         let stdin = io::stdin();
-        let lines: Vec<_> = stdin.lock().lines().filter_map(|x| x.ok()).collect();
+        let lines: Vec<_> = stdin
+            .lock()
+            .lines()
+            .filter_map(|x| {
+                if let Ok(line) = x {
+                    if args.minlength.is_some() && !long_enough(&line, args.minlength.unwrap()) {
+                        None
+                    } else {
+                        Some(line)
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
         let results = detector.compute_language_confidence_values_in_parallel(&lines);
         for (line, results) in lines.iter().zip(results) {
             print_line_with_confidence_values(
@@ -134,14 +159,16 @@ fn main() {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
             if let Ok(line) = line {
-                let results = detector.compute_language_confidence_values(&line);
-                print_line_with_confidence_values(
-                    &line,
-                    &results,
-                    &args.delimiter,
-                    args.confidence,
-                    args.all,
-                );
+                if args.minlength.is_none() || long_enough(&line, args.minlength.unwrap()) {
+                    let results = detector.compute_language_confidence_values(&line);
+                    print_line_with_confidence_values(
+                        &line,
+                        &results,
+                        &args.delimiter,
+                        args.confidence,
+                        args.all,
+                    );
+                }
             }
         }
     } else {
@@ -150,14 +177,23 @@ fn main() {
             .read_to_end(&mut buf)
             .expect("expected input via stdin");
         let text = String::from_utf8(buf).expect("Input should be valid utf-8");
-        if args.multi {
-            let results = detector.detect_multiple_languages_of(&text);
-            print_with_offset(&results, &text, &args.delimiter)
-        } else {
-            let results = detector.compute_language_confidence_values(text);
-            print_confidence_values(&results, &args.delimiter, args.confidence, args.all);
+        if args.minlength.is_none() || long_enough(&text, args.minlength.unwrap()) {
+            if args.multi {
+                let results = detector.detect_multiple_languages_of(&text);
+                print_with_offset(&results, &text, &args.delimiter)
+            } else {
+                let results = detector.compute_language_confidence_values(text);
+                if !print_confidence_values(&results, &args.delimiter, args.confidence, args.all) {
+                    eprintln!("(confidence threshold not reached)");
+                }
+            }
         }
     }
+}
+
+#[inline]
+fn long_enough(line: &str, minlength: u8) -> bool {
+    line.chars().filter(|c| c.is_alphabetic()).count() >= minlength as usize
 }
 
 fn print_confidence_values(
@@ -165,15 +201,18 @@ fn print_confidence_values(
     delimiter: &str,
     confidence_threshold: Option<f64>,
     all: bool,
-) {
+) -> bool {
+    let mut found = false;
     for result in results {
         if confidence_threshold.is_some() && result.1 >= confidence_threshold.unwrap() {
+            found = true;
             print!("{}{}{}\n", result.0.iso_code_639_1(), delimiter, result.1);
         }
         if !all {
             break;
         }
     }
+    found
 }
 
 fn print_line_with_confidence_values(
