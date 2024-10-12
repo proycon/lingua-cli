@@ -5,9 +5,9 @@ authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 license = "GPL-3.0-only"
 readme = "README.md"
 repository = "https://github.com/proycon/lingua-cli"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 lingua = "1.6.2"
