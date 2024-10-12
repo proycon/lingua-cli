@@ -71,7 +71,12 @@ struct Args {
     #[arg(short = 'p', help = "preload models")]
     preload: bool,
 
-    #[arg(short, long, default_value = "\t")]
+    #[arg(
+        short = 'D',
+        long,
+        default_value = "\t",
+        help = "Output column delimiter"
+    )]
     delimiter: String,
 
     #[arg(required = false)]
